@@ -44,24 +44,34 @@ def load_fraud_data(file_path , batch_size):
     df.drop(columns=['timestamp','fraud_label'], inplace=True)
 
     # train test split:
+    # train test split:
     x_train, x_test, y_train, y_test = train_test_split(df, label, test_size=0.2)
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.2)
 
     ## Train dataloader:
     train_set = TensorDataset(torch.tensor(x_train.values, dtype=torch.float32),torch.tensor(y_train.values, dtype=torch.float32).reshape(-1, 1))
-   
     train_loader = DataLoader(train_set, batch_size = batch_size)
 
-    ## Test dataloader:
-    val_set = TensorDataset(torch.tensor(x_test.values, dtype=torch.float32), torch.tensor(y_test.values, dtype=torch.float32).reshape(-1, 1))
-    test_loader = DataLoader(val_set, batch_size = batch_size)
+    ## val dataloader:
+    val_set = TensorDataset(torch.tensor(x_val.values, dtype=torch.float32), torch.tensor(y_val.values, dtype=torch.float32).reshape(-1, 1))
+    val_loader = DataLoader(val_set, batch_size = batch_size)
 
-    return train_loader, test_loader
+    ## Test dataloader:
+    test_set = TensorDataset(torch.tensor(x_test.values, dtype=torch.float32),torch.tensor(y_test.values, dtype=torch.float32).reshape(-1, 1))
+    test_loader = DataLoader(test_set, batch_size = batch_size)
+
+    return train_loader, val_loader, test_loader
 
 class CifarClient(BasicClient):
     def get_data_loaders(self, config: Config) -> tuple[DataLoader, DataLoader]:
         batch_size = narrow_dict_type(config, "batch_size", int)
-        train_loader, val_loader = load_fraud_data(self.data_path, batch_size)
+        train_loader, val_loader, _ = load_fraud_data(self.data_path, batch_size)
         return train_loader, val_loader
+    
+    def get_test_data_loader(self, config: Config) -> DataLoader | None:
+        batch_size = narrow_dict_type(config, "batch_size", int)
+        _,_,test_loader = load_fraud_data(self.data_path, batch_size)
+        return test_loader
 
     def get_criterion(self, config: Config) -> _Loss:
         #return nn.BCEWithLogitsLoss() #replaced with BCELoss to use sigmoid layer in model
